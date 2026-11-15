@@ -6,8 +6,10 @@ decides which big square your opponent has to play in next.
 
 It is a static site with no build step, hosted on GitHub Pages from this repo.
 
-Status of this document: proposed. The diagrams show the intended look and
-rules. Where the finished game differs, this file gets updated to match.
+Status of this document: the game is built to this spec. The diagrams in
+sections 1 to 3 were drawn before the build and show the rules. Section 4 has
+screenshots of the finished game. Keep this file in step with the game when
+either changes.
 
 ## Contents
 
@@ -112,7 +114,18 @@ list the rules use, so the two cannot disagree.
 
 ## 4. Screen
 
+The planned layout:
+
 ![Screen layout on a wide screen and on a phone](diagrams/06-screen-layout.svg)
+
+The finished game, on a wide screen with a free move, and on a phone with a
+forced move and with Touching squares mode and numbers on:
+
+<img src="screenshots/desktop-free-move.png" alt="Wide screen, X has a free move anywhere open" width="720">
+
+<img src="screenshots/phone-forced-move.png" alt="Phone, O must play in big square 1" width="300"> <img src="screenshots/phone-touching-mode-numbers.png" alt="Phone, X may play in big squares 2, 4 or 5, numbers shown" width="300">
+
+X is blue and O is orange. The two colours also differ in lightness.
 
 ### Board
 
@@ -120,8 +133,9 @@ list the rules use, so the two cannot disagree.
   700px wide. All 81 small squares are the same size and exactly square.
 - The gaps between big squares are heavier than the gaps between small
   squares, so the two levels read at a glance.
-- X and O are drawn as vector strokes in two colours that also differ in
-  lightness.
+- X and O are drawn as vector strokes.
+- With a keyboard, the arrow keys move across the board and Enter or Space
+  plays.
 
 ### Highlighting
 
@@ -311,4 +325,12 @@ Open, not planned yet:
 - Online play between two devices. This needs a server or a peer-to-peer
   connection, which GitHub Pages alone does not give.
 - A score across several games.
-- Sharing a position by link.
+- Moving the computer's search off the main thread (a Web Worker). On Hard the
+  page is unresponsive for up to 0.6 seconds while it thinks. Clicks made in
+  that time are discarded.
+- A button to copy a link to the current position. The page already accepts a
+  `?moves=4-1,1-5` parameter (see the README), so this is a small addition.
+
+Not yet checked on real hardware: a physical phone, Safari, Firefox, and a
+screen reader. Everything so far was checked in desktop Chrome with phone
+sizes emulated.

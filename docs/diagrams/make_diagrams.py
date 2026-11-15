@@ -4,8 +4,8 @@ import sys, os
 OUT = sys.argv[1]
 os.makedirs(OUT, exist_ok=True)
 
-XC, OC = "#D4472A", "#1F5FA8"          # player colours
-XT, OT = "#FCE6DF", "#DFEAF8"          # tints for legal squares
+XC, OC = "#2348C8", "#CF5206"          # player colours
+XT, OT = "#DFE6FB", "#FDE5CF"          # tints for legal squares
 INK, MUTE, FAINT = "#2B2A27", "#6F6A62", "#A39D92"
 PLATE, SQ, SQDIM, CELL, CELLDIM = "#DDD8CD", "#FFFFFF", "#ECE9E2", "#F3F1EC", "#E4E0D8"
 FONT = "-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
@@ -198,7 +198,7 @@ body.append(text(60, 92, "Tic-Tac-Toe Expansion", 16, 700, INK, "start"))
 bd, _, _ = board(66, 116, 310, legal={0}, accent=OC, marks={(3, 0): "X"}, last=(3, 0))
 body.append(bd)
 px = 410
-body += [box(px, 108, 190, 44, "Status: O to move in big square 1", "#DFEAF8", 11, 600, 8, OC),
+body += [box(px, 108, 190, 44, "Status: O to move in big square 1", OT, 11, 600, 8, OC),
          box(px, 162, 91, 32, "New game", size=12), box(px + 99, 162, 91, 32, "Undo", size=12),
          box(px, 204, 190, 32, "Opponent: Two players | Computer", size=11),
          box(px, 246, 190, 32, "Free move: Anywhere | Touching", size=11),
@@ -211,7 +211,7 @@ body += [box(px, 108, 190, 44, "Status: O to move in big square 1", "#DFEAF8", 1
 fx = 700
 body.append(f'<rect x="{fx}" y="60" width="200" height="400" rx="22" fill="#F3F1EC" stroke="{INK}" stroke-width="2"/>')
 body.append(text(fx + 100, 88, "Tic-Tac-Toe Expansion", 12, 700, INK))
-body.append(box(fx + 12, 98, 176, 28, "O to move in big square 1", "#DFEAF8", 10.5, 600, 8, OC))
+body.append(box(fx + 12, 98, 176, 28, "O to move in big square 1", OT, 10.5, 600, 8, OC))
 bd, _, _ = board(fx + 17, 141, 166, legal={0}, accent=OC, marks={(3, 0): "X"}, last=(3, 0))
 body.append(bd)
 body += [box(fx + 12, 322, 84, 26, "New game", size=10.5), box(fx + 104, 322, 84, 26, "Undo", size=10.5),
