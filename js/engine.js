@@ -15,6 +15,11 @@ const ALL_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
 export const MODES = Object.freeze({ ANYWHERE: 'anywhere', ADJACENT: 'adjacent' });
 
+// What happens to a big square that fills up with no line. Fixed per game.
+//   'reset' - it is wiped and stays in play.
+//   'stay'  - it keeps its marks and is closed; it counts for nobody's line.
+export const TIE_RULES = Object.freeze({ RESET: 'reset', STAY: 'stay' });
+
 // The 8 winning triples: rows, columns, diagonals.
 export const LINES = Object.freeze(
   [
@@ -37,6 +42,14 @@ function isMode(value) {
   return value === MODES.ANYWHERE || value === MODES.ADJACENT;
 }
 
+function isTieRule(value) {
+  return value === TIE_RULES.RESET || value === TIE_RULES.STAY;
+}
+
+function isPlayer(value) {
+  return value === 'X' || value === 'O';
+}
+
 function emptyBoard() {
   return new Array(SIZE).fill(null);
 }
@@ -51,12 +64,30 @@ function findLine(squares, player) {
   return null;
 }
 
+// A big square is open when it is neither won nor tied-and-closed.
+function isOpen(state, board) {
+  return state.boardWinners[board] === null && !state.boardTied[board];
+}
+
+// endedBy for a state saved before that field existed.
+function inferEndedBy(winner) {
+  if (winner === null) return null;
+  return winner === 'draw' ? 'full' : 'line';
+}
+
+// Deep copy. A state saved by the first release has no tieRule, boardTied or
+// endedBy; those are filled in here with what that release meant ('reset',
+// nothing tied), so every engine function hands back a complete state.
 function cloneState(state) {
   return {
     mode: state.mode,
+    tieRule: state.tieRule === undefined ? TIE_RULES.RESET : state.tieRule,
     cells: state.cells.map((small) => small.slice()),
     boardWinners: state.boardWinners.slice(),
     boardWinLines: state.boardWinLines.map((line) => (line ? line.slice() : null)),
+    boardTied: Array.isArray(state.boardTied)
+      ? state.boardTied.slice()
+      : new Array(SIZE).fill(false),
     resets: state.resets.slice(),
     currentPlayer: state.currentPlayer,
     targetBoard: state.targetBoard,
@@ -64,6 +95,7 @@ function cloneState(state) {
     constraint: state.constraint,
     winner: state.winner,
     winLine: state.winLine ? state.winLine.slice() : null,
+    endedBy: state.endedBy === undefined ? inferEndedBy(state.winner) : state.endedBy,
     lastMove: state.lastMove ? { board: state.lastMove.board, cell: state.lastMove.cell } : null,
     history: state.history.map((entry) => ({
       player: entry.player,
@@ -77,23 +109,22 @@ function cloneState(state) {
   };
 }
 
-// Where may the player to move play? Derived from winner, targetBoard,
-// boardWinners and mode only.
+// Where may the player to move play? Derived from winner, targetBoard, mode
+// and which big squares are open. `state` must have boardTied.
 function restriction(state) {
   if (state.winner !== null) {
     return { constraint: 'over', legalBoards: [] };
   }
-  const open = ALL_INDICES.filter((board) => state.boardWinners[board] === null);
+  const open = ALL_INDICES.filter((board) => isOpen(state, board));
   if (state.targetBoard === null) {
     return { constraint: 'start', legalBoards: open };
   }
-  if (state.boardWinners[state.targetBoard] === null) {
+  if (isOpen(state, state.targetBoard)) {
     return { constraint: 'forced', legalBoards: [state.targetBoard] };
   }
+  // Sent to a closed square (won, or tied under 'stay'): a free move.
   if (state.mode === MODES.ADJACENT) {
-    const touching = neighbors(state.targetBoard).filter(
-      (board) => state.boardWinners[board] === null,
-    );
+    const touching = neighbors(state.targetBoard).filter((board) => isOpen(state, board));
     if (touching.length > 0) {
       return { constraint: 'adjacent', legalBoards: touching };
     }
@@ -112,6 +143,9 @@ function describeIllegal(state, board, cell) {
   if (state.boardWinners[board] !== null) {
     return `Illegal move ${name}: big square ${board + 1} is already won`;
   }
+  if (Array.isArray(state.boardTied) && state.boardTied[board]) {
+    return `Illegal move ${name}: big square ${board + 1} is tied and closed`;
+  }
   if (!state.legalBoards.includes(board)) {
     const allowed = state.legalBoards.map((b) => b + 1).join(', ');
     return `Illegal move ${name}: ${state.currentPlayer} must play in big square ${allowed}`;
@@ -119,15 +153,20 @@ function describeIllegal(state, board, cell) {
   return `Illegal move ${name}: that square is taken`;
 }
 
-export function createGame({ mode = MODES.ANYWHERE } = {}) {
+export function createGame({ mode = MODES.ANYWHERE, tieRule = TIE_RULES.RESET } = {}) {
   if (!isMode(mode)) {
     throw new Error(`Unknown mode: ${String(mode)}`);
   }
+  if (!isTieRule(tieRule)) {
+    throw new Error(`Unknown tie rule: ${String(tieRule)}`);
+  }
   return {
     mode,
+    tieRule,
     cells: ALL_INDICES.map(() => emptyBoard()),
     boardWinners: emptyBoard(),
     boardWinLines: emptyBoard(),
+    boardTied: new Array(SIZE).fill(false),
     resets: new Array(SIZE).fill(0),
     currentPlayer: 'X',
     targetBoard: null,
@@ -135,6 +174,7 @@ export function createGame({ mode = MODES.ANYWHERE } = {}) {
     constraint: 'start',
     winner: null,
     winLine: null,
+    endedBy: null,
     lastMove: null,
     history: [],
   };
@@ -167,22 +207,29 @@ export function applyMove(state, board, cell) {
     next.boardWinners[board] = player;
     next.boardWinLines[board] = line;
   } else if (next.cells[board].every((mark) => mark !== null)) {
-    // Tie: remember the layout, wipe the square, leave it open.
     tiedBoard = true;
-    tiedCells = next.cells[board];
-    next.cells[board] = emptyBoard();
-    next.resets[board] += 1;
+    if (next.tieRule === TIE_RULES.STAY) {
+      // Tie under 'stay': the marks stay and the square is closed for good.
+      next.boardTied[board] = true;
+    } else {
+      // Tie under 'reset': remember the layout, wipe the square, leave it open.
+      tiedCells = next.cells[board];
+      next.cells[board] = emptyBoard();
+      next.resets[board] += 1;
+    }
   }
 
-  // Then the game itself. Only a newly won big square can end it.
-  if (wonBoard) {
-    const gameLine = findLine(next.boardWinners, player);
-    if (gameLine) {
-      next.winner = player;
-      next.winLine = gameLine;
-    } else if (next.boardWinners.every((owner) => owner !== null)) {
-      next.winner = 'draw';
-    }
+  // Then the game itself. Only a newly won big square can make a line; a
+  // tied square counts for nobody. With no line, the game is drawn once no
+  // open square is left (under 'reset' that means all nine are won).
+  const gameLine = wonBoard ? findLine(next.boardWinners, player) : null;
+  if (gameLine) {
+    next.winner = player;
+    next.winLine = gameLine;
+    next.endedBy = 'line';
+  } else if (!ALL_INDICES.some((b) => isOpen(next, b))) {
+    next.winner = 'draw';
+    next.endedBy = 'full';
   }
 
   next.history.push({
@@ -218,6 +265,27 @@ export function setMode(state, mode) {
     next.constraint = constraint;
     next.legalBoards = legalBoards;
   }
+  return next;
+}
+
+// Ends the game against `loser` for a reason the board cannot show. The only
+// reason defined is 'time' (a clock ran out). The position is left as it is.
+export function forfeit(state, loser, reason = 'time') {
+  if (state.winner !== null) {
+    throw new Error('Cannot forfeit: the game is already over');
+  }
+  if (!isPlayer(loser)) {
+    throw new Error(`Cannot forfeit: loser must be 'X' or 'O' (got ${String(loser)})`);
+  }
+  if (reason !== 'time') {
+    throw new Error(`Cannot forfeit: unknown reason ${String(reason)}`);
+  }
+  const next = cloneState(state);
+  next.winner = loser === 'X' ? 'O' : 'X';
+  next.winLine = null;
+  next.endedBy = reason;
+  next.constraint = 'over';
+  next.legalBoards = [];
   return next;
 }
 

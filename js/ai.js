@@ -5,10 +5,13 @@
 //
 // The engine's applyMove copies the whole state (history included), which is
 // far too slow for a search. So this file keeps its own compact, mutable copy
-// of the position and plays the rules itself: small-square win, tie wipe,
-// game win and draw, and the forced / free / adjacent rule with its fallback.
-// tests/ai.test.mjs plays thousands of random moves through both and checks
-// they never disagree.
+// of the position and plays the rules itself: small-square win, the tie (wiped
+// under tie rule 'reset', closed for good under 'stay'), game win and draw,
+// and the forced / free / adjacent rule with its fallback. tests/ai.test.mjs
+// plays thousands of random moves through both and checks they never disagree.
+//
+// A big square is OPEN when nobody has won it and it has not been closed by a
+// tie. Only open squares can be played in.
 //
 // Everything is 0-indexed, row by row, same as the engine.
 
@@ -79,8 +82,8 @@ const WIN_ZONE = WIN - 1000; // any score beyond this is a forced win or loss
 const INF = 2000000;
 const SQUARE_BASE = 40; // a won big square is worth BASE + PER_LINE * lines through it
 const SQUARE_PER_LINE = 30; // edge 100, corner 130, centre 160
-const BIG_TWO = 180; // two won big squares in a line, third still open
-const BIG_ONE = 15; // one won big square in a line, other two still open
+const BIG_TWO = 180; // two won big squares in a line, third still winnable
+const BIG_ONE = 15; // one won big square in a line, other two still winnable
 const SMALL_TWO = 5; // two in a small line, third cell empty
 const SMALL_ONE = 1; // one in a small line, other two cells empty
 const LINE_IMPORTANCE = [1, 2, 6]; // how much a live big line adds to a square on it, by squares already won
@@ -168,6 +171,9 @@ const STACK = 512; // make/unmake depth available to callers (search uses far le
 
 const masks = new Int32Array(18); // masks[player * 9 + board]; player 0 is X, 1 is O
 const big = new Int32Array(2); // big squares won by each player
+let tied = 0; // big squares closed by a tie (tie rule 'stay' only)
+let closed = 0; // big[0] | big[1] | tied, kept up to date by make/unmake
+let stayRule = false; // true: a tie closes the square; false: a tie wipes it
 let side = 0; // player to move
 let target = -1; // big square the last move pointed at, -1 before the first move
 let winner = -1; // -1 none, 0 X, 1 O, 2 draw
@@ -190,6 +196,10 @@ function load(state) {
   masks.fill(0);
   big[0] = 0;
   big[1] = 0;
+  tied = 0;
+  // A state from before the tie rule existed has neither field: it plays 'reset'.
+  stayRule = state.tieRule === 'stay';
+  const boardTied = Array.isArray(state.boardTied) ? state.boardTied : null;
   for (let b = 0; b < 9; b += 1) {
     const small = state.cells[b];
     for (let c = 0; c < 9; c += 1) {
@@ -198,7 +208,9 @@ function load(state) {
     }
     if (state.boardWinners[b] === 'X') big[0] |= 1 << b;
     else if (state.boardWinners[b] === 'O') big[1] |= 1 << b;
+    else if (boardTied !== null && boardTied[b]) tied |= 1 << b;
   }
+  closed = big[0] | big[1] | tied;
   side = state.currentPlayer === 'O' ? 1 : 0;
   target = Number.isInteger(state.targetBoard) ? state.targetBoard : -1;
   if (state.winner === 'X') winner = 0;
@@ -218,7 +230,7 @@ function load(state) {
 // Bit mask of the big squares the side to move may play in. 0 when the game is over.
 function legalMask() {
   if (winner !== -1) return 0;
-  const open = FULL & ~(big[0] | big[1]);
+  const open = FULL & ~closed;
   if (target < 0) return open;
   if ((open >> target) & 1) return 1 << target;
   if (adjacentMode) {
@@ -249,12 +261,21 @@ function make(board, cell) {
     // Big square won. Only this can end the game.
     const mineBig = big[me] | (1 << board);
     big[me] = mineBig;
+    closed |= 1 << board;
     if (HAS_LINE[mineBig]) winner = me;
-    else if ((mineBig | big[1 - me]) === FULL) winner = 2;
+    else if (closed === FULL) winner = 2;
   } else if ((nextMine | theirs) === FULL) {
-    // Tie: the square is wiped and stays open.
-    nextMine = 0;
-    nextTheirs = 0;
+    if (stayRule) {
+      // Tie: the square keeps its marks and is closed. That can use up the
+      // last open square, which is a draw.
+      tied |= 1 << board;
+      closed |= 1 << board;
+      if (closed === FULL) winner = 2;
+    } else {
+      // Tie: the square is wiped and stays open.
+      nextMine = 0;
+      nextTheirs = 0;
+    }
   }
   masks[i] = nextMine;
   masks[j] = nextTheirs;
@@ -284,8 +305,10 @@ function unmake() {
   const board = undoBoard[sp];
   masks[side * 9 + board] = undoMine[sp];
   masks[(1 - side) * 9 + board] = undoTheirs[sp];
-  // The square was open before the move, so the mover cannot have held it.
+  // The square was open before the move, so it was neither won nor tied.
   big[side] &= ~(1 << board);
+  tied &= ~(1 << board);
+  closed &= ~(1 << board);
   winner = -1; // moves are only ever made in a live game
   target = undoTarget[sp];
   hash1 = undoHash1[sp];
@@ -299,15 +322,22 @@ function unmake() {
 function evaluate(ply) {
   const bx = big[0];
   const bo = big[1];
-  const kx = T3[bx] + 2 * T3[bo];
-  const ko = T3[bo] + 2 * T3[bx];
-  const open = FULL & ~(bx | bo);
+  const open = FULL & ~closed;
+  // A tied square is lost to both players, so in each player's table key it
+  // counts as the other side's: every big line through it is dead for both.
+  // (Under 'stay', tying a square the opponent was building in, or letting
+  // your own tie, shows up here by itself: the progress score inside it goes
+  // and the lines through it die. Going further and writing off squares a
+  // player can no longer win was tried and won nothing in 4400 games.)
+  const kx = T3[bx] + 2 * T3[bo | tied];
+  const ko = T3[bo] + 2 * T3[bx | tied];
 
-  // Won big squares and open lines of them, X minus O.
+  // Won big squares and live lines of them, X minus O. Tied squares count
+  // for nothing.
   let score = SQUARE_VALUE[bx] - SQUARE_VALUE[bo] + BIG_LINES[kx] - BIG_LINES[ko];
 
   // Progress inside each open small board, weighted by how much that big
-  // square matters to each player.
+  // square matters to each player. Closed squares score nothing here.
   for (let b = 0; b < 9; b += 1) {
     if (!((open >> b) & 1)) continue;
     const tx = T3[masks[b]];
@@ -333,7 +363,7 @@ function evaluate(ply) {
     if (value > tempo) tempo = value;
   }
   score += tempo;
-  // Being handed a free move (the target square is already won) is worth
+  // Being handed a free move (the target square is already closed) is worth
   // something by itself; equivalently, handing one over is penalised.
   if (target >= 0 && !((open >> target) & 1)) {
     score += legal === open ? FREE_MOVE : FREE_MOVE_ADJACENT;
@@ -368,20 +398,22 @@ function orderScore(move, ttMove, ply) {
   const mine = masks[me * 9 + board];
   const theirs = masks[opp * 9 + board];
   const key = T3[mine] + 2 * T3[theirs];
-  let wonAfter = big[0] | big[1];
+  let closedAfter = closed;
   let s = 0;
   let winsBoard = false;
   if ((WIN_CELLS[key] >> cell) & 1) {
     winsBoard = true;
     s += ORDER_BOARD_WIN;
     if (HAS_LINE[big[me] | (1 << board)]) return ORDER_GAME_WIN + (move === ttMove ? ORDER_TT : 0);
-    wonAfter |= 1 << board;
+    closedAfter |= 1 << board;
   } else {
     if ((WIN_CELLS[T3[theirs] + 2 * T3[mine]] >> cell) & 1) s += ORDER_BLOCK;
     s += LOCAL[key + T3[1 << cell]] - LOCAL[key];
+    // Under 'stay' the move that fills the square closes it.
+    if (stayRule && (mine | theirs | (1 << cell)) === FULL) closedAfter |= 1 << board;
   }
   // Where the opponent is sent.
-  if ((wonAfter >> cell) & 1) {
+  if ((closedAfter >> cell) & 1) {
     s += ORDER_GIVES_FREE_MOVE;
   } else {
     let destTheirs = masks[opp * 9 + cell];
@@ -449,6 +481,7 @@ let ttScore = null;
 let ttInfo = null; // depth << 9 | flag << 7 | move; 0 means empty
 
 const CLOCK_EVERY = 512; // nodes between clock checks (a power of two)
+const UNTIMED_DEPTH = 2; // depths searched in full even with no time at all
 
 const now =
   typeof performance !== 'undefined' && typeof performance.now === 'function'
@@ -583,10 +616,24 @@ function think(rootLegal, { maxDepth, timeLimitMs, margin, rng, level }) {
   let doneScore = 0;
   const window = margin >= 0 ? margin + 1 : 0;
 
+  // Under 'stay' every move fills a cell of an open square for good, so the
+  // game cannot last longer than the empty cells left in open squares.
+  // Searching that deep reaches the end of every line; deeper adds nothing.
+  let deepest = maxDepth;
+  if (stayRule) {
+    let cellsLeft = 0;
+    for (let b = 0; b < 9; b += 1) {
+      if (!((closed >> b) & 1)) cellsLeft += 9 - POP[masks[b] | masks[9 + b]];
+    }
+    if (cellsLeft < deepest) deepest = cellsLeft;
+  }
+
   if (count > 1) {
-    for (let depth = 1; depth <= maxDepth; depth += 1) {
-      // Depth 1 always runs to the end, so there is always a searched move.
-      timed = depth > 1;
+    for (let depth = 1; depth <= deepest; depth += 1) {
+      // The first depths always run to the end, whatever the clock says, so
+      // there is always a searched move that has looked at the reply. They
+      // cost well under a millisecond.
+      timed = depth > UNTIMED_DEPTH;
       let best = -INF;
       const exact = [];
       for (let i = 0; i < count; i += 1) {
@@ -616,7 +663,7 @@ function think(rootLegal, { maxDepth, timeLimitMs, margin, rng, level }) {
       // Best first for the next depth.
       rootMoves = rootMoves.slice().sort((a, b) => b.score - a.score);
       // Not enough time left to finish another depth: stop here.
-      if (now() - start >= timeLimitMs * 0.5) break;
+      if (depth >= UNTIMED_DEPTH && now() - start >= timeLimitMs * 0.5) break;
     }
   }
 
@@ -680,7 +727,7 @@ export function chooseMove(state, { level = 'medium', timeLimitMs, rng = Math.ra
   // (Inside the search the rules are worked out here.)
   let rootLegal = legalMask();
   if (Array.isArray(state.legalBoards)) {
-    const open = FULL & ~(big[0] | big[1]);
+    const open = FULL & ~closed;
     let listed = 0;
     for (const b of state.legalBoards) {
       if (Number.isInteger(b) && b >= 0 && b < 9) listed |= 1 << b;
@@ -736,6 +783,7 @@ export const _internals = {
   snapshot() {
     const cells = [];
     const boardWinners = [];
+    const boardTied = [];
     for (let b = 0; b < 9; b += 1) {
       const small = [];
       for (let c = 0; c < 9; c += 1) {
@@ -743,10 +791,13 @@ export const _internals = {
       }
       cells.push(small);
       boardWinners.push((big[0] >> b) & 1 ? 'X' : (big[1] >> b) & 1 ? 'O' : null);
+      boardTied.push(((tied >> b) & 1) === 1);
     }
     return {
+      tieRule: stayRule ? 'stay' : 'reset',
       cells,
       boardWinners,
+      boardTied,
       currentPlayer: NAMES[side],
       targetBoard: target < 0 ? null : target,
       legalBoards: maskToList(legalMask()),

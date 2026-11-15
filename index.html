@@ -20,17 +20,45 @@
       <button type="button" class="btn btn-quiet" id="help-open" aria-haspopup="dialog">How to play</button>
     </header>
 
-    <div class="status" id="status" data-player="X">
-      <svg class="status-mark" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
-        <path class="mark-x" d="M27 27 73 73M73 27 27 73"/>
-        <circle class="mark-o" cx="50" cy="50" r="25"/>
-      </svg>
-      <p class="status-text" id="status-text" aria-live="polite">X to move, anywhere</p>
-      <button type="button" class="btn btn-strong" id="play-again" hidden>Play again</button>
+    <div class="status-area">
+      <div class="status" id="status" data-player="X">
+        <svg class="status-mark" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+          <path class="mark-x" d="M27 27 73 73M73 27 27 73"/>
+          <circle class="mark-o" cx="50" cy="50" r="25"/>
+        </svg>
+        <p class="status-text" id="status-text" aria-live="polite">X to move, anywhere</p>
+        <button type="button" class="btn btn-strong" id="play-again" hidden>Play again</button>
+      </div>
+
+      <div class="clocks" id="clocks" hidden>
+        <div class="clock" id="clock-x" data-player="X" role="timer" aria-label="X clock">
+          <svg class="clock-mark" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+            <path class="mark-x" d="M27 27 73 73M73 27 27 73"/>
+          </svg>
+          <span class="clock-time" id="clock-time-x">0:00</span>
+        </div>
+        <button type="button" class="btn clock-pause" id="pause" aria-label="Pause" disabled>
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <path class="icon-pause" d="M7 4.5v11M13 4.5v11"/>
+            <path class="icon-play" d="M6.5 4v12l10-6z"/>
+          </svg>
+        </button>
+        <div class="clock" id="clock-o" data-player="O" role="timer" aria-label="O clock">
+          <svg class="clock-mark" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+            <circle class="mark-o" cx="50" cy="50" r="25"/>
+          </svg>
+          <span class="clock-time" id="clock-time-o">0:00</span>
+        </div>
+      </div>
     </div>
 
     <main class="board-area">
-      <div class="board" id="board" role="group" aria-label="Game board"></div>
+      <div class="board" id="board" role="group" aria-label="Game board">
+        <div class="paused" id="paused" hidden>
+          <p>Paused</p>
+          <button type="button" class="btn btn-strong" id="resume">Resume</button>
+        </div>
+      </div>
       <noscript><p class="noscript">This game needs JavaScript to run.</p></noscript>
     </main>
 
@@ -48,45 +76,100 @@
         </div>
       </div>
 
-      <div class="setting">
-        <span class="setting-label" id="label-opponent">Opponent</span>
-        <div class="seg" role="radiogroup" aria-labelledby="label-opponent">
-          <label><input type="radio" name="opponent" value="human" checked><span>Two players</span></label>
-          <label><input type="radio" name="opponent" value="computer"><span>Computer</span></label>
-        </div>
-      </div>
-      <p class="setting-note" id="ai-note" hidden>The computer opponent could not be loaded.</p>
+      <details class="settings" id="settings">
+        <summary>
+          <span class="settings-title">Settings</span>
+          <span class="settings-summary" id="settings-summary">Two players · Anywhere · Ties reset · No clock</span>
+        </summary>
 
-      <div class="setting" id="row-level" hidden>
-        <span class="setting-label" id="label-level">Level</span>
-        <div class="seg" role="radiogroup" aria-labelledby="label-level">
-          <label><input type="radio" name="level" value="easy"><span>Easy</span></label>
-          <label><input type="radio" name="level" value="medium" checked><span>Medium</span></label>
-          <label><input type="radio" name="level" value="hard"><span>Hard</span></label>
-        </div>
-      </div>
+        <div class="settings-body">
+          <div class="group" role="group" aria-labelledby="group-players">
+            <p class="group-label" id="group-players">Players</p>
 
-      <div class="setting" id="row-side" hidden>
-        <span class="setting-label" id="label-side">You play</span>
-        <div class="seg" role="radiogroup" aria-labelledby="label-side">
-          <label><input type="radio" name="side" value="X" checked><span>X, first</span></label>
-          <label><input type="radio" name="side" value="O"><span>O, second</span></label>
-        </div>
-      </div>
+            <div class="setting">
+              <span class="setting-label" id="label-opponent">Opponent</span>
+              <div class="seg" role="radiogroup" aria-labelledby="label-opponent">
+                <label><input type="radio" name="opponent" value="human" checked><span>Two players</span></label>
+                <label><input type="radio" name="opponent" value="computer"><span>Computer</span></label>
+              </div>
+            </div>
+            <p class="setting-note" id="ai-note" hidden>The computer opponent could not be loaded.</p>
 
-      <div class="setting">
-        <span class="setting-label" id="label-mode">Free move</span>
-        <div class="seg" role="radiogroup" aria-labelledby="label-mode" aria-describedby="mode-note">
-          <label><input type="radio" name="mode" value="anywhere" checked><span>Anywhere</span></label>
-          <label><input type="radio" name="mode" value="adjacent"><span>Touching squares</span></label>
-        </div>
-      </div>
-      <p class="setting-note" id="mode-note">If you are sent to a won square, you can play in any open square.</p>
+            <div class="setting" id="row-level" hidden>
+              <span class="setting-label" id="label-level">Level</span>
+              <div class="seg" role="radiogroup" aria-labelledby="label-level">
+                <label><input type="radio" name="level" value="easy"><span>Easy</span></label>
+                <label><input type="radio" name="level" value="medium" checked><span>Medium</span></label>
+                <label><input type="radio" name="level" value="hard"><span>Hard</span></label>
+              </div>
+            </div>
 
-      <label class="check">
-        <input type="checkbox" id="numbers">
-        <span>Show numbers</span>
-      </label>
+            <div class="setting" id="row-side" hidden>
+              <span class="setting-label" id="label-side">You play</span>
+              <div class="seg" role="radiogroup" aria-labelledby="label-side">
+                <label><input type="radio" name="side" value="X" checked><span>X, first</span></label>
+                <label><input type="radio" name="side" value="O"><span>O, second</span></label>
+              </div>
+            </div>
+          </div>
+
+          <div class="group" role="group" aria-labelledby="group-rules">
+            <p class="group-label" id="group-rules">Rules</p>
+
+            <div class="setting">
+              <span class="setting-label" id="label-mode">Free move</span>
+              <div class="seg" role="radiogroup" aria-labelledby="label-mode" aria-describedby="mode-note">
+                <label><input type="radio" name="mode" value="anywhere" checked><span>Anywhere</span></label>
+                <label><input type="radio" name="mode" value="adjacent"><span>Touching squares</span></label>
+              </div>
+            </div>
+            <p class="setting-note" id="mode-note">If you are sent to a won square, you can play in any open square.</p>
+
+            <div class="setting">
+              <span class="setting-label" id="label-tie">Ties</span>
+              <div class="seg" role="radiogroup" aria-labelledby="label-tie" aria-describedby="tie-note">
+                <label><input type="radio" name="tie" value="reset" checked><span>Reset square</span></label>
+                <label><input type="radio" name="tie" value="stay"><span>Stays closed</span></label>
+              </div>
+            </div>
+            <p class="setting-note" id="tie-note">A tied square is wiped clean and stays in play.</p>
+          </div>
+
+          <div class="group" role="group" aria-labelledby="group-clock">
+            <p class="group-label" id="group-clock">Clock</p>
+
+            <div class="setting">
+              <span class="setting-label" id="label-clock">Minutes</span>
+              <div class="seg" role="radiogroup" aria-labelledby="label-clock" aria-describedby="clock-note">
+                <label><input type="radio" name="clock" value="0" checked><span>Off</span></label>
+                <label><input type="radio" name="clock" value="60"><span>1</span></label>
+                <label><input type="radio" name="clock" value="180"><span>3</span></label>
+                <label><input type="radio" name="clock" value="300"><span>5</span></label>
+                <label><input type="radio" name="clock" value="600"><span>10</span></label>
+              </div>
+            </div>
+
+            <div class="setting" id="row-inc" hidden>
+              <span class="setting-label" id="label-inc">Increment</span>
+              <div class="seg" role="radiogroup" aria-labelledby="label-inc" aria-describedby="clock-note">
+                <label><input type="radio" name="inc" value="0" checked><span>0</span></label>
+                <label><input type="radio" name="inc" value="2"><span>2</span></label>
+                <label><input type="radio" name="inc" value="5"><span>5</span></label>
+                <label><input type="radio" name="inc" value="10"><span>10</span></label>
+              </div>
+            </div>
+            <p class="setting-note" id="clock-note">No clock. Take as long as you like.</p>
+          </div>
+
+          <div class="group" role="group" aria-labelledby="group-board">
+            <p class="group-label" id="group-board">Board</p>
+            <label class="check">
+              <input type="checkbox" id="numbers">
+              <span>Show numbers</span>
+            </label>
+          </div>
+        </div>
+      </details>
     </section>
 
     <section class="moves" aria-labelledby="moves-title">
@@ -137,18 +220,30 @@
 
       <h3>Winning a big square</h3>
       <p>Get three in a row on a small board to win that big square. A won square is closed, so nobody can play in it again.</p>
-      <p>If a small board fills up with no winner, it is a tie. That board is wiped clean and stays open.</p>
+      <p>If a small board fills up with no winner, it is a tie. The Ties setting decides what happens to it.</p>
+      <ul>
+        <li><strong>Reset square.</strong> The board is wiped clean and stays in play.</li>
+        <li><strong>Stays closed.</strong> The board stays as it is and is closed for the rest of the game. It counts for nobody.</li>
+      </ul>
 
       <h3>Free moves</h3>
-      <p>If you are sent to a big square that is already won, you get a free move. The Free move setting decides where it can go.</p>
+      <p>If you are sent to a big square that is closed, you get a free move. A square is closed when it has been won, or when it is tied and ties stay closed. The Free move setting decides where the free move can go.</p>
       <ul>
         <li><strong>Anywhere.</strong> You can play in any open big square.</li>
         <li><strong>Touching squares.</strong> You can only play in open big squares that touch the one you were sent to, diagonals included. If none of them is open, you can play in any open big square.</li>
       </ul>
-      <p>You can change this setting during a game.</p>
+      <p>You can change the Free move setting during a game.</p>
 
       <h3>Winning the game</h3>
-      <p>Win three big squares in a row. If all nine big squares are won and nobody has a row, the game is a draw.</p>
+      <p>Win three big squares in a row. If no open big square is left and nobody has three in a row, the game is a draw.</p>
+
+      <h3>Clock</h3>
+      <p>With the clock on, each player gets the chosen number of minutes for the whole game. Only the player to move counts down, and the clock switches by itself when a move is made. The clocks start once the first move has been played.</p>
+      <p>An increment adds that many seconds to your clock after each move you make. If your time runs out, you lose. Pause stops both clocks and locks the board until you resume.</p>
+      <p>The game also pauses when you open this page, switch to another tab or reload. Undo puts both clocks back to where they were.</p>
+
+      <h3>Starting a new game</h3>
+      <p>Opponent, side, Ties and Clock are fixed for a game. Changing one of them starts a new game.</p>
 
       <h3>Playing the computer</h3>
       <p>Set Opponent to Computer, then pick a level and a side. X moves first. Undo takes back your last move and the computer's reply.</p>

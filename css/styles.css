@@ -1,7 +1,8 @@
 /* Tic-Tac-Toe Expansion
    Plain CSS, no build step. Colours and sizes are custom properties on :root.
    Sections: theme, sizing, page layout, board, big squares, small squares,
-   overlays, status, controls, move list, help dialog, motion. */
+   overlays, status, clock, controls, settings, move list, help dialog,
+   motion. */
 
 /* ---------- Theme ---------- */
 
@@ -15,6 +16,10 @@
   --line: #d2cdc1;          /* thin lines between small squares */
   --line-strong: #b9b3a6;   /* control borders */
   --frame: #8f897c;         /* heavy lines between big squares */
+  --tied: #e6e2d8;          /* a tied square that stays closed */
+  --scrim: rgb(241 238 232 / 0.9);
+  --danger: #b3141f;        /* a clock that is nearly out */
+  --danger-tint: #fbe2df;
 
   --x: #2348c8;
   --x-text: #2348c8;
@@ -42,6 +47,10 @@
     --line: #37342e;
     --line-strong: #4d4941;
     --frame: #6f6a5f;
+    --tied: #25231f;
+    --scrim: rgb(22 21 19 / 0.9);
+    --danger: #ff857c;
+    --danger-tint: #40191a;
 
     --x: #7fa5ff;
     --x-text: #8fb0ff;
@@ -69,6 +78,10 @@
   --line: #37342e;
   --line-strong: #4d4941;
   --frame: #6f6a5f;
+  --tied: #25231f;
+  --scrim: rgb(22 21 19 / 0.9);
+  --danger: #ff857c;
+  --danger-tint: #40191a;
 
   --x: #7fa5ff;
   --x-text: #8fb0ff;
@@ -109,6 +122,8 @@
   --col-gap: 28px;
   --head-h: 44px;
   --status-h: 52px;
+  --clock-h: 44px;
+  --clock-space: 0px;     /* room the clock row takes above the board */
   --control-h: 38px;
 
   --vh: 100vh;
@@ -120,7 +135,7 @@
 
   /* One column: title and status sit above the board. */
   --avail-w: var(--cw);
-  --avail-h: calc(var(--vh) - var(--pad-top) - var(--pad-bottom) - var(--head-h) - var(--status-h) - 2 * var(--row-gap));
+  --avail-h: calc(var(--vh) - var(--pad-top) - var(--pad-bottom) - var(--head-h) - var(--status-h) - var(--clock-space) - 2 * var(--row-gap));
 
   --avail: min(var(--avail-w), var(--avail-h), var(--board-max));
   --chrome: calc(2 * var(--gap-big) + 6 * var(--sq-border) + 6 * var(--sq-pad) + 6 * var(--gap-cell));
@@ -131,6 +146,11 @@
 
 @supports (height: 100dvh) {
   :root { --vh: 100dvh; }
+}
+
+/* With the clock on, one more row sits between the status line and the board. */
+:root[data-clock="on"] {
+  --clock-space: calc(var(--clock-h) + var(--row-gap));
 }
 
 /* The width of the page content, without any scrollbar. */
@@ -233,7 +253,7 @@ h1, h2, h3, p { margin: 0; }
 }
 
 .head { grid-area: head; }
-.status { grid-area: status; }
+.status-area { grid-area: status; }
 .board-area { grid-area: board; }
 .controls { grid-area: controls; }
 .moves { grid-area: moves; }
@@ -252,6 +272,12 @@ h1, h2, h3, p { margin: 0; }
   line-height: 1.15;
   font-weight: 700;
   letter-spacing: -0.01em;
+}
+
+.status-area {
+  display: grid;
+  gap: var(--row-gap);
+  min-width: 0;
 }
 
 .board-area {
@@ -392,6 +418,12 @@ h1, h2, h3, p { margin: 0; }
   --sq-line: var(--o-line);
 }
 
+/* A tied square that stays closed: grey, marks faded, never a ring. */
+.sq.is-tied {
+  --sq-bg: var(--tied);
+  --mark-opacity: 0.32;
+}
+
 .sq-grid {
   display: grid;
   grid-template-columns: repeat(3, var(--cell));
@@ -498,7 +530,8 @@ h1, h2, h3, p { margin: 0; }
 }
 
 .app[data-numbers="on"] .cell:not([data-mark]):not([data-ghost]) .cell-num { display: grid; }
-.sq.is-won .cell-num { display: none !important; }
+.sq.is-won .cell-num,
+.sq.is-tied .cell-num { display: none !important; }
 
 /* ---------- Big square overlays ---------- */
 
@@ -527,6 +560,31 @@ h1, h2, h3, p { margin: 0; }
 .sq.is-won { --mark-opacity: 0.14; }
 .sq.is-won .cell.is-winline .mark { opacity: 0.42; }
 .sq.is-won .cell.is-last::after { opacity: 0.3; }
+
+/* The neutral label over a tied square that stays closed. */
+.sq-closed {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.sq.is-tied .sq-closed { display: grid; }
+
+.sq-closed span {
+  padding: 0.2em 0.75em;
+  border: 2px solid var(--frame);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: clamp(12px, calc(var(--sq) * 0.105), 20px);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.sq.is-tied .cell.is-last::after { opacity: 0.3; }
 
 /* Corner number of a big square, shown with "Show numbers". */
 .sq-num {
@@ -639,6 +697,26 @@ h1, h2, h3, p { margin: 0; }
   text-align: center;
 }
 
+/* Over the board while the clock is paused. */
+.paused {
+  position: absolute;
+  inset: -4px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  border-radius: var(--sq-radius);
+  background: var(--scrim);
+  z-index: 20;
+}
+
+.paused p {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.paused .btn { min-width: 120px; }
+
 /* ---------- Status ---------- */
 
 .status {
@@ -706,6 +784,101 @@ h1, h2, h3, p { margin: 0; }
   .status-text { font-size: 16px; }
 }
 
+/* ---------- Clock ---------- */
+
+.clocks {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+.clock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  height: var(--clock-h);
+  padding: 0 12px 0 10px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  min-width: 0;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.clock-mark {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke-width: 15;
+  stroke-linecap: round;
+  opacity: 0.6;
+}
+
+.clock-mark .mark-x,
+.clock-mark .mark-o { display: inline; }
+
+.clock-time {
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* The clock that is counting down, in its player's colour. */
+.clock.is-running {
+  color: var(--ink);
+  background: var(--surface);
+}
+.clock.is-running .clock-mark { opacity: 1; }
+.clock.is-running[data-player="X"] { border-color: var(--x); background: var(--x-tint); }
+.clock.is-running[data-player="O"] { border-color: var(--o); background: var(--o-tint); }
+
+/* Under ten seconds, and a clock that has run out. */
+.clock.is-low .clock-time { color: var(--danger); }
+.clock.is-low.is-running,
+.clock.is-flagged {
+  border-color: var(--danger);
+  background: var(--danger-tint);
+}
+.clock.is-flagged { color: var(--danger); }
+
+.clock-pause {
+  width: var(--clock-h);
+  min-height: var(--clock-h);
+  padding: 0;
+}
+
+.clock-pause.is-idle { visibility: hidden; }
+
+.clock-pause svg {
+  width: 24px;
+  height: 24px;
+}
+
+.icon-pause {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.icon-play {
+  display: none;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.clock-pause[data-state="paused"] .icon-pause { display: none; }
+.clock-pause[data-state="paused"] .icon-play { display: inline; }
+
 /* ---------- Controls ---------- */
 
 .btn {
@@ -770,6 +943,8 @@ h1, h2, h3, p { margin: 0; }
   container-type: inline-size;
 }
 
+.settings-body { container-type: inline-size; }
+
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -795,6 +970,80 @@ h1, h2, h3, p { margin: 0; }
 
 .confirm-actions .btn { flex: 1 1 auto; }
 
+/* ---------- Settings ---------- */
+
+.settings {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  min-width: 0;
+}
+
+.settings summary {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 8px 40px 8px 12px;
+  border-radius: 10px;
+  list-style: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.settings summary::-webkit-details-marker { display: none; }
+
+/* Chevron: points down when closed, up when open. */
+.settings summary::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -7px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+}
+
+.settings[open] summary::after {
+  margin-top: -2px;
+  transform: rotate(-135deg);
+}
+
+.settings summary:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.settings-title { font-weight: 600; }
+
+.settings-summary {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.settings-body {
+  display: grid;
+  gap: 14px;
+  padding: 4px 12px 12px;
+}
+
+.group {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.group-label {
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
 .setting {
   display: grid;
   grid-template-columns: 76px minmax(0, 1fr);
@@ -817,7 +1066,7 @@ h1, h2, h3, p { margin: 0; }
 }
 
 /* In a narrow column the label goes above its control. */
-@container (max-width: 296px) {
+@container (max-width: 300px) {
   .setting {
     grid-template-columns: minmax(0, 1fr);
     gap: 3px;
@@ -1095,6 +1344,8 @@ h1, h2, h3, p { margin: 0; }
 .cell.pop .mark { animation: pop 170ms cubic-bezier(0.2, 0.9, 0.3, 1.2); }
 .sq.pop .sq-won svg { animation: pop-big 260ms cubic-bezier(0.2, 0.9, 0.3, 1.15); }
 .sq.is-gameline { animation: win-bump 520ms ease-in-out 2; }
+.sq.pop-tie { animation: win-bump 460ms ease-in-out 1; }
+.sq.pop-tie .sq-closed span { animation: pop-big 260ms cubic-bezier(0.2, 0.9, 0.3, 1.15); }
 
 @keyframes pop {
   from { transform: scale(0.55); opacity: 0; }
