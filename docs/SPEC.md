@@ -18,12 +18,13 @@ either changes.
 3. [Where the next move can go](#3-where-the-next-move-can-go)
 4. [Screen](#4-screen)
 5. [Computer opponent](#5-computer-opponent)
-6. [Phone support](#6-phone-support)
-7. [Code layout](#7-code-layout)
-8. [Build plan](#8-build-plan)
-9. [Checks before release](#9-checks-before-release)
-10. [Publishing](#10-publishing)
-11. [Decisions and open questions](#11-decisions-and-open-questions)
+6. [Clock](#6-clock)
+7. [Phone support](#7-phone-support)
+8. [Code layout](#8-code-layout)
+9. [Build plan](#9-build-plan)
+10. [Checks before release](#10-checks-before-release)
+11. [Publishing](#11-publishing)
+12. [Decisions and open questions](#12-decisions-and-open-questions)
 
 ## 1. Numbering and notation
 
@@ -52,15 +53,18 @@ same number. After `4-1`, the opponent must play somewhere inside big square 1.
 Three in a row inside a small board wins that big square. It shows a large X
 or O and is closed for the rest of the game.
 
+A big square is open until it is closed. Winning it closes it. Under one of
+the two tie settings below, a tie closes it as well.
+
 ### Free moves
 
-If you are sent to a big square that is already won, you get a free move.
+If you are sent to a big square that is closed, you get a free move.
 There are two modes, chosen with a switch on screen.
 
 | Mode | Where the free move can go |
 |---|---|
-| Anywhere (default) | Any big square that is not won |
-| Touching squares | Only open big squares touching the one you were sent to, diagonals included. Sent to 1 means 2, 4 or 5. If all of those are won as well, anywhere open. |
+| Anywhere (default) | Any open big square |
+| Touching squares | Only open big squares touching the one you were sent to, diagonals included. Sent to 1 means 2, 4 or 5. If all of those are closed as well, anywhere open. |
 
 ![Free move in both modes](diagrams/03-free-move.svg)
 
@@ -80,18 +84,30 @@ Squares that touch each big square, for the second mode:
 
 ### Ties
 
-When a big square fills up and nobody has three in a row, it is wiped back to
-nine empty squares and stays in play. This happens as part of the move that
-filled it. That move still sends the opponent on as usual.
+A big square that fills up with nobody having three in a row is a tie. There
+are two settings, chosen before the game and fixed for that game.
 
-![A tied big square is reset](diagrams/04-tie-reset.svg)
+| Setting | What a tie does |
+|---|---|
+| Reset square (default) | The square is wiped back to nine empty squares and stays in play. |
+| Stays closed | The square keeps its marks and is closed. It belongs to nobody and counts for nobody's line. |
 
-Because of this, an open big square always has room for a move.
+![A tied big square under both settings](diagrams/04-tie-rules.svg)
+
+Either way, the move that caused the tie still sends the opponent on as usual.
+Under Stays closed that can be the square that just tied, which is now closed,
+so the opponent gets a free move.
+
+An open big square always has room for a move.
 
 ### Winning the game
 
-Win three big squares in a row, across, down or diagonal. If all nine big
-squares are won and nobody has a line, the game is a draw.
+Win three big squares in a row, across, down or diagonal. If no open big
+square is left and nobody has a line, the game is a draw. With ties set to
+Reset square that means all nine are won. With Stays closed some of them may
+be tied, so draws are more common.
+
+With the clock on, a player whose time runs out loses (section 6).
 
 ![X wins with a diagonal of big squares](diagrams/05-winning.svg)
 
@@ -104,10 +120,10 @@ big square the last move pointed at.
 |---|---|---|
 | First move of the game | All nine | All nine |
 | Target is open | The target only | The target |
-| Target is won, mode Anywhere | Every open big square | Every open big square |
-| Target is won, mode Touching, at least one touching square open | The open touching squares | Those squares |
-| Target is won, mode Touching, no touching square open | Every open big square | Every open big square |
-| Game over | None | The winning line of big squares |
+| Target is closed, mode Anywhere | Every open big square | Every open big square |
+| Target is closed, mode Touching, at least one touching square open | The open touching squares | Those squares |
+| Target is closed, mode Touching, no touching square open | Every open big square | Every open big square |
+| Game over | None | The winning line of big squares, if there is one |
 
 The highlight always matches the legal squares exactly. It comes from the same
 list the rules use, so the two cannot disagree.
@@ -118,12 +134,17 @@ The planned layout:
 
 ![Screen layout on a wide screen and on a phone](diagrams/06-screen-layout.svg)
 
-The finished game, on a wide screen with a free move, and on a phone with a
-forced move and with Touching squares mode and numbers on:
+The finished game on a wide screen, with a free move, and with two tied
+squares under the Stays closed setting:
 
 <img src="screenshots/desktop-free-move.png" alt="Wide screen, X has a free move anywhere open" width="720">
 
-<img src="screenshots/phone-forced-move.png" alt="Phone, O must play in big square 1" width="300"> <img src="screenshots/phone-touching-mode-numbers.png" alt="Phone, X may play in big squares 2, 4 or 5, numbers shown" width="300">
+<img src="screenshots/desktop-tied-squares.png" alt="Wide screen, two tied and closed big squares" width="720">
+
+On a phone: a forced move, Touching squares mode with numbers on, and a game
+with the clock running:
+
+<img src="screenshots/phone-forced-move.png" alt="Phone, O must play in big square 1" width="240"> <img src="screenshots/phone-touching-mode-numbers.png" alt="Phone, X may play in big squares 2, 4 or 5, numbers shown" width="240"> <img src="screenshots/phone-clock.png" alt="Phone, clocks above the board, X to move" width="240">
 
 X is blue and O is orange. The two colours also differ in lightness.
 
@@ -146,8 +167,10 @@ X is blue and O is orange. The two colours also differ in lightness.
 - With a mouse, hovering over a legal small square shows a faint mark there
   and outlines the big square that move would send the opponent to.
 - A won big square shows a large X or O over its faded small marks.
-- A tied big square shows its full layout for about a second with a
-  "Tie, square reset" badge, then clears.
+- With ties set to Reset square, a tied big square shows its full layout for
+  about a second with a "Tie, square reset" badge, then clears.
+- With ties set to Stays closed, a tied big square keeps its marks, faded,
+  under a neutral "Tie" marker. It is dimmed and never highlighted.
 - At the end of the game the three winning big squares are picked out.
 
 ### Around the board
@@ -159,9 +182,16 @@ X is blue and O is orange. The two colours also differ in lightness.
 | Undo | Takes back the last move. Against the computer it takes back your move and the reply. |
 | Opponent | Two players on one device, or the computer (with a level and a choice of side) |
 | Free move | Switches between Anywhere and Touching squares. Takes effect at once. |
+| Ties | Reset square, or Stays closed. Changing it starts a new game. |
+| Clock | Off, or 1, 3, 5 or 10 minutes each, with an optional increment. Changing it starts a new game. |
+| Clock faces | One per player, shown when the clock is on. The running one is in that player's colour. |
+| Pause | Stops the clocks and blocks the board. Shown in a timed game. |
 | Show numbers | Overlays the 1 to 9 numbering on big and small squares |
 | Moves | The move list in `B-C` notation, with a marker for moves that won or tied a big square |
 | How to play | The rules in short form, with the numbering diagram |
+
+The settings sit in one panel, grouped as Players, Rules, Clock and Board. On
+a wide screen the panel folds down to a one-line summary when space is short.
 
 The game in progress is saved in the browser, so a reload continues it. Light
 and dark themes follow the device setting.
@@ -187,10 +217,33 @@ search to the end. It always works to a depth or time limit.
 The computer plays by whichever free-move mode is selected. It runs in the
 page, with no server.
 
-## 6. Phone support
+## 6. Clock
 
-- The layout stacks on narrow screens: status, board, then controls. Status
-  and board are visible together without scrolling.
+An optional chess-style clock. It is off by default.
+
+![How the clock passes from one player to the other](diagrams/07-clock.svg)
+
+- Each player gets the same time for the whole game: 1, 3, 5 or 10 minutes.
+- Only the player to move counts down. Making a move stops your clock and
+  starts the other player's. There is no button to press.
+- Increment: 0, 2, 5 or 10 seconds, added to your clock after each move you
+  make.
+- The clocks do not run before the first move. The second player's clock
+  starts when the first move lands.
+- If your clock reaches zero you lose the game at once.
+- Under ten seconds the clock shows tenths of a second and changes colour.
+- Undo puts both clocks back to what they showed when that position came up.
+- Pause stops both clocks and blocks the board. The game also pauses when the
+  page is hidden, when How to play is open, and after a reload.
+- Against the computer both clocks run. The computer spends less time per
+  move as its clock runs down, so it does not lose on time in normal play.
+
+Clock and increment are fixed for a game. Changing either starts a new game.
+
+## 7. Phone support
+
+- The layout stacks on narrow screens: status, clocks if on, board, then
+  controls. Status, clocks and board are visible together without scrolling.
 - The board uses the full width on a phone. On a 360px-wide screen each small
   square is about 32px, which is the practical floor for a fingertip.
 - In landscape the board sizes from the screen height and sits beside the
@@ -199,9 +252,9 @@ page, with no server.
   are at least 44px tall on touch screens. Nothing depends on hover.
 - Safe-area insets are respected on phones with a notch.
 
-Sizes checked: 1440x900, 1024x768, 768x1024, 390x844, 360x640, 844x390.
+Sizes checked, with the clock on and off: 1440x900, 1024x768, 768x1024, 390x844, 360x640, 844x390.
 
-## 7. Code layout
+## 8. Code layout
 
 ```
 index.html            page structure
@@ -216,7 +269,8 @@ docs/diagrams/        the diagrams, and the script that draws them
 ```
 
 The rules live in one place, `js/engine.js`. The screen never decides what is
-legal. It asks the engine.
+legal. It asks the engine. The clock lives in `js/ui.js`; the engine only
+knows that a game can be forfeited.
 
 ### Engine interface
 
@@ -224,10 +278,12 @@ Squares are 0 to 8 in code and 1 to 9 on screen.
 
 ```js
 MODES = { ANYWHERE: 'anywhere', ADJACENT: 'adjacent' }
-createGame({ mode })            // new game state
+TIE_RULES = { RESET: 'reset', STAY: 'stay' }
+createGame({ mode, tieRule })   // new game state
 isLegalMove(state, board, cell) // true or false
 applyMove(state, board, cell)   // returns the next state; throws if illegal
 setMode(state, mode)            // re-works a free-move position for the other mode
+forfeit(state, loser, 'time')   // ends the game against a player (clock ran out)
 neighbors(board)                // touching big squares
 notation(board, cell)           // (3, 0) gives "4-1"
 ```
@@ -237,14 +293,16 @@ State is plain JSON, and every function returns a new state.
 | Field | Meaning |
 |---|---|
 | `cells[board][cell]` | `null`, `'X'` or `'O'` |
+| `mode`, `tieRule` | The free-move mode and the tie setting |
 | `boardWinners[board]` | Who won each big square, or `null` |
+| `boardTied[board]` | `true` for a square that tied and stays closed |
 | `boardWinLines[board]` | The winning three small squares in a won big square |
 | `resets[board]` | How many times a big square was wiped by a tie |
 | `currentPlayer` | `'X'` or `'O'` |
 | `targetBoard` | The big square the last move pointed at |
 | `legalBoards` | Big squares the current player may use |
 | `constraint` | `'start'`, `'forced'`, `'free'`, `'adjacent'` or `'over'` |
-| `winner`, `winLine` | Result of the game, and the winning big squares |
+| `winner`, `winLine`, `endedBy` | Result of the game, the winning big squares, and how it ended: `'line'`, `'full'` or `'time'` |
 | `lastMove`, `history` | The last move, and every move with its notation and whether it won or tied a square |
 
 ### Computer opponent interface
@@ -254,7 +312,7 @@ LEVELS = ['easy', 'medium', 'hard']
 chooseMove(state, { level, timeLimitMs, rng })  // returns { board, cell }
 ```
 
-## 8. Build plan
+## 9. Build plan
 
 The work is split so separate agents can build in parallel against the
 interfaces above, with one coordinator checking the result.
@@ -265,14 +323,24 @@ interfaces above, with one coordinator checking the result.
 | 2a. Rules engine | agent A | `js/engine.js`, `tests/engine.test.mjs` |
 | 2b. Screen | agent B | `index.html`, `css/styles.css`, `js/ui.js` |
 | 2c. Computer opponent | agent C | `js/ai.js`, `tests/ai.test.mjs` |
-| 3. Integration | coordinator | Tests run, game played in a headless browser, screenshots checked at every size in section 6 |
+| 3. Integration | coordinator | Tests run, game played in a headless browser, screenshots checked at every size in section 7 |
 | 4. Independent review | agent D | A fresh read of the rules code against section 2, and of the screen against section 4 |
 | 5. Release prep | coordinator | Fixes, README, this spec brought in line with the finished game |
 
-Stages 2a, 2b and 2c run at the same time. Each agent owns its own files and
+Second round, after the first release, for the tie setting and the clock:
+
+| Stage | Who | Output |
+|---|---|---|
+| 6. Contract | coordinator | Tie setting, forfeit and clock rules fixed in writing |
+| 7a. Rules engine | agent A | `tieRule`, `boardTied`, `endedBy`, `forfeit`, with tests |
+| 7b. Screen | agent B | Ties setting, tied-square look, clock, pause, settings layout |
+| 7c. Computer opponent | agent C | Plays correctly under both tie settings and on short time budgets |
+| 8. Integration and review | coordinator, agent D | As stages 3 and 4, for the new parts |
+
+Stages 2a, 2b and 2c run at the same time, and so do 7a, 7b and 7c. Each agent owns its own files and
 does not touch the others'.
 
-## 9. Checks before release
+## 10. Checks before release
 
 Rules, covered by automated tests:
 
@@ -281,9 +349,15 @@ Rules, covered by automated tests:
   square, anything after the game ends.
 - Free move in both modes, including the fallback when no touching square is
   open.
-- A tie wipes the square in the same move, and the opponent is still sent on.
-- Game win by row, column and diagonal. Draw with nine won squares and no line.
-- Hundreds of random games in each mode, checking after every move that an
+- Ties set to Reset square: a tie wipes the square in the same move, and the
+  opponent is still sent on.
+- Ties set to Stays closed: the square closes and counts for nobody, being
+  sent to it gives a free move, and the game is drawn when no open square is
+  left.
+- Forfeit ends the game for the other player and refuses further moves.
+- Game win by row, column and diagonal. Draw with no open square and no line.
+- Hundreds of random games in each combination of free-move mode and tie
+  setting, checking after every move that an
   open square has room and that there is always a legal move until the game
   ends.
 - The computer only makes legal moves, takes a win when it has one, and its
@@ -291,13 +365,22 @@ Rules, covered by automated tests:
 
 Screen, checked by eye from screenshots:
 
-- Squares are even and nothing overflows at each size in section 6.
+- Squares are even and nothing overflows at each size in section 7.
 - The legal squares are obvious within a second of looking, in light and dark.
 - Status line and highlight agree in every situation in section 3.
+- A tied, closed square cannot be mistaken for an open or a won one.
+
+Clock, checked in a browser with a short test clock:
+
+- Only the mover's clock runs, and it passes on each move.
+- The increment is added after each move.
+- A clock at zero ends the game for the other player, for either side, in
+  two-player and against the computer.
+- Undo, pause, a hidden page and a reload leave the clocks right.
 
 Run the tests with `node --test tests/`.
 
-## 10. Publishing
+## 11. Publishing
 
 The site is plain files at the repo root, so GitHub Pages can serve the `main`
 branch directly: repo Settings, Pages, "Deploy from a branch", `main`, `/ (root)`.
@@ -306,22 +389,29 @@ The game will then be at `https://charlesyapai.github.io/tictactoe_expansion/`.
 To run it locally, serve the folder (browsers do not load modules from
 `file://`): `python3 -m http.server 8000`, then open `http://localhost:8000`.
 
-## 11. Decisions and open questions
+## 12. Decisions and open questions
 
 Decisions taken where the original description left room. Any of these can
 change.
 
 | Question | Decision |
 |---|---|
-| Does "completed" mean won, or full? | Won. A full square with no winner is a tie and resets. |
+| Does "completed" mean won, or full? | Won. A full square with no winner is a tie, and the Ties setting decides whether it resets or stays closed. |
 | Do diagonals count as touching? | Yes, so 1 touches 2, 4 and 5. |
 | Touching mode with no open touching square | Falls back to anywhere open. |
-| Does a tying move still send the opponent on? | Yes, by the usual rule, even into the square just wiped. |
-| All nine big squares won, no line | Draw. |
+| Does a tying move still send the opponent on? | Yes, by the usual rule, even into the square that just tied. |
+| No open big square left, no line | Draw. |
 | Changing the free-move mode during a game | Allowed. It applies to the current position at once. |
+| Changing the tie setting or the clock during a game | Starts a new game, after asking. |
+| How the clock passes | By itself when a move is made. No button. |
+| Running out of time | Loses the game. |
+| When the clocks start | After the first move of the game. |
 
 Open, not planned yet:
 
+- Ending a game as a draw as soon as nobody can still make a line. Today it
+  plays on until no open square is left, which matters most with ties set to
+  Stays closed.
 - Online play between two devices. This needs a server or a peer-to-peer
   connection, which GitHub Pages alone does not give.
 - A score across several games.

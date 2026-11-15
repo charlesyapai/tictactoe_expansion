@@ -155,15 +155,19 @@ body += [b1, b2,
          text(720, 524, "(if all of those are won too, O may play anywhere open)", 14, 400, MUTE)]
 save("03-free-move.svg", 960, 548, body)
 
-# 4. Tie reset -------------------------------------------------------------
+# 4. Ties, both settings ---------------------------------------------------
 tie = ["X", "O", "X", "X", "O", "O", "O", "X", "X"]
-body = [text(250, 44, "Big square is full, nobody has a line", 18, 700),
-        text(710, 44, "It is wiped and stays in play", 18, 700),
-        big_square(130, 70, 240, tie, last=8),
-        big_square(590, 70, 240, [None] * 9, badge="Tie, square reset"),
-        arrow(400, 190, 560, 190),
-        text(480, 350, "The move that caused the tie (here X at small square 9) still sends O to big square 9.", 15, 400, MUTE)]
-save("04-tie-reset.svg", 960, 376, body)
+body = [text(170, 150, "Big square is full,", 18, 700), text(170, 174, "nobody has a line", 18, 700),
+        big_square(60, 196, 220, tie, last=8),
+        text(700, 40, "Ties: Reset square", 18, 700),
+        big_square(600, 56, 200, [None] * 9, badge="Tie, square reset"),
+        text(700, 306, "Ties: Stays closed", 18, 700),
+        big_square(600, 322, 200, tie, state="dim", badge="Tie"),
+        arrow(300, 270, 575, 170), arrow(300, 340, 575, 420),
+        text(440, 176, "wiped, stays in play", 14, 400, MUTE),
+        text(440, 432, "kept, closed, nobody's", 14, 400, MUTE),
+        text(480, 566, "Either way the move that caused the tie (here X at small square 9) still sends O to big square 9.", 15, 400, MUTE)]
+save("04-tie-rules.svg", 960, 592, body)
 
 # 5. Winning ---------------------------------------------------------------
 won = {0: "X", 4: "X", 8: "X", 2: "O", 3: "O"}
@@ -187,39 +191,64 @@ body = [text(240, 44, "X wins the game", 19, 700), b1,
 save("05-winning.svg", 960, 470, body)
 
 # 6. Screen layout ---------------------------------------------------------
-def box(x, y, w, h, label, fill="#FFFFFF", size=14, weight=500, rx=8, stroke="#C9C4B9"):
+def box(x, y, w, h, label, fill="#FFFFFF", size=14, weight=500, rx=8, stroke="#C9C4B9", ink=MUTE):
     return (f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{rx}" fill="{fill}" stroke="{stroke}" stroke-width="1.5"/>'
-            + (text(x + w / 2, y + h / 2 + size * 0.36, label, size, weight, MUTE) if label else ""))
+            + (text(x + w / 2, y + h / 2 + size * 0.36, label, size, weight, ink) if label else ""))
+
+
+def clock(x, y, w, h, who, time, active=False, warn=False, size=14):
+    col = XC if who == "X" else OC
+    fill = (XT if who == "X" else OT) if active else "#FFFFFF"
+    stroke = "#B3261E" if warn else (col if active else "#C9C4B9")
+    out = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{h*0.28:.1f}" fill="{fill}" stroke="{stroke}" stroke-width="{2.5 if active or warn else 1.5}"/>',
+           mark(who, x + h * 0.5, y + h / 2, h * 0.34, max(2, h * 0.09), 1.0 if active else 0.55),
+           text(x + w - h * 0.3, y + h / 2 + size * 0.36, time, size, 700, "#B3261E" if warn else (INK if active else MUTE), "end")]
+    return "\n".join(out)
+
 
 body = [text(330, 40, "Wide screen", 19, 700), text(800, 40, "Phone", 19, 700)]
-# desktop frame
 body.append(f'<rect x="40" y="60" width="580" height="400" rx="12" fill="#F3F1EC" stroke="{INK}" stroke-width="2"/>')
 body.append(text(60, 92, "Tic-Tac-Toe Expansion", 16, 700, INK, "start"))
 bd, _, _ = board(66, 116, 310, legal={0}, accent=OC, marks={(3, 0): "X"}, last=(3, 0))
 body.append(bd)
 px = 410
-body += [box(px, 108, 190, 44, "Status: O to move in big square 1", OT, 11, 600, 8, OC),
-         box(px, 162, 91, 32, "New game", size=12), box(px + 99, 162, 91, 32, "Undo", size=12),
-         box(px, 204, 190, 32, "Opponent: Two players | Computer", size=11),
-         box(px, 246, 190, 32, "Free move: Anywhere | Touching", size=11),
-         box(px, 288, 190, 28, "Show numbers", size=12),
-         box(px, 326, 190, 68, "", size=12),
-         text(px + 12, 348, "Moves", 12, 700, INK, "start"),
-         text(px + 12, 372, "1. X 4-1", 12, 400, MUTE, "start"),
+body += [box(px, 108, 190, 40, "Status: O to move in big square 1", OT, 11, 600, 8, OC),
+         clock(px, 156, 91, 32, "X", "4:52", size=13), clock(px + 99, 156, 91, 32, "O", "5:00", active=True, size=13),
+         box(px, 198, 91, 30, "New game", size=12), box(px + 99, 198, 91, 30, "Undo", size=12),
+         box(px, 238, 190, 84, "", size=12),
+         text(px + 12, 258, "Players: two, or the computer", 11, 400, MUTE, "start"),
+         text(px + 12, 278, "Rules: free move, ties", 11, 400, MUTE, "start"),
+         text(px + 12, 298, "Clock: time and increment", 11, 400, MUTE, "start"),
+         text(px + 12, 316, "Show numbers", 11, 400, MUTE, "start"),
+         box(px, 332, 190, 62, "", size=12),
+         text(px + 12, 353, "Moves", 12, 700, INK, "start"),
+         text(px + 12, 376, "1. X 4-1", 12, 400, MUTE, "start"),
          box(px, 404, 190, 36, "How to play", size=12)]
-# phone frame
 fx = 700
 body.append(f'<rect x="{fx}" y="60" width="200" height="400" rx="22" fill="#F3F1EC" stroke="{INK}" stroke-width="2"/>')
-body.append(text(fx + 100, 88, "Tic-Tac-Toe Expansion", 12, 700, INK))
-body.append(box(fx + 12, 98, 176, 28, "O to move in big square 1", OT, 10.5, 600, 8, OC))
-bd, _, _ = board(fx + 17, 141, 166, legal={0}, accent=OC, marks={(3, 0): "X"}, last=(3, 0))
+body.append(text(fx + 100, 86, "Tic-Tac-Toe Expansion", 12, 700, INK))
+body.append(box(fx + 12, 96, 176, 26, "O to move in big square 1", OT, 10.5, 600, 8, OC))
+body += [clock(fx + 12, 129, 84, 24, "X", "4:52", size=11), clock(fx + 104, 129, 84, 24, "O", "5:00", active=True, size=11)]
+bd, _, _ = board(fx + 20, 166, 160, legal={0}, accent=OC, marks={(3, 0): "X"}, last=(3, 0))
 body.append(bd)
-body += [box(fx + 12, 322, 84, 26, "New game", size=10.5), box(fx + 104, 322, 84, 26, "Undo", size=10.5),
-         box(fx + 12, 356, 176, 26, "Opponent: Two players | Computer", size=9.5),
-         box(fx + 12, 390, 176, 26, "Free move: Anywhere | Touching", size=9.5),
-         box(fx + 12, 424, 176, 26, "Numbers, Moves, How to play", size=10)]
-body += [text(330, 490, "Board on the left, status and controls in a side panel", 15, 400, MUTE),
-         text(800, 490, "Status above the board, controls below", 15, 400, MUTE)]
+body += [box(fx + 12, 340, 84, 26, "New game", size=10.5), box(fx + 104, 340, 84, 26, "Undo", size=10.5),
+         box(fx + 12, 374, 176, 26, "Players, rules, clock", size=10),
+         box(fx + 12, 408, 176, 26, "Numbers, moves, how to play", size=10)]
+body += [text(330, 490, "Board on the left; status, clocks and controls in a side panel", 15, 400, MUTE),
+         text(800, 490, "Status and clocks above the board", 15, 400, MUTE)]
 save("06-screen-layout.svg", 960, 516, body)
+
+# 7. Clock -----------------------------------------------------------------
+body = [text(160, 44, "1. X is thinking", 18, 700), text(480, 44, "2. X plays", 18, 700), text(800, 44, "3. A clock reaches zero", 18, 700)]
+for cx, (xt, xa, xw), (ot, oa, ow) in [(160, ("3:41", True, False), ("4:05", False, False)),
+                                        (480, ("3:46", False, False), ("4:05", True, False)),
+                                        (800, ("1:12", False, False), ("0:00", False, True))]:
+    body += [clock(cx - 124, 70, 118, 46, "X", xt, xa, xw, 18), clock(cx + 6, 70, 118, 46, "O", ot, oa, ow, 18)]
+body += [arrow(296, 93, 340, 93), arrow(616, 93, 660, 93),
+         text(160, 150, "Only the player to move", 15, 400, MUTE), text(160, 172, "counts down.", 15, 400, MUTE),
+         text(480, 150, "X's clock stops and gains the", 15, 400, MUTE), text(480, 172, "increment (here 5 seconds).", 15, 400, MUTE),
+         text(480, 194, "O's clock starts by itself.", 15, 400, MUTE),
+         text(800, 150, "O ran out of time.", 15, 400, MUTE), text(800, 172, "X wins the game.", 15, 400, MUTE)]
+save("07-clock.svg", 960, 222, body)
 
 print("wrote", sorted(os.listdir(OUT)))
