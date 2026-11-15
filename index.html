@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tic-Tac-Toe Expansion</title>
+  <meta name="description" content="A big tic-tac-toe board where every square holds a small one. For two players on one device, or one player against the computer.">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1eee8">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161513">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f1eee8'/%3E%3Cpath d='M13 13 29 29M29 13 13 29' stroke='%232348c8' stroke-width='6' stroke-linecap='round'/%3E%3Ccircle cx='43' cy='43' r='9' fill='none' stroke='%23cf5206' stroke-width='6'/%3E%3Cpath d='M36 6v22M6 36h22M58 36H36v22' stroke='%238f897c' stroke-width='2' stroke-linecap='round' fill='none' opacity='.6'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/ui.js"></script>
+</head>
+<body>
+  <div class="app" id="app" data-turn="X" data-numbers="off">
+
+    <header class="head">
+      <h1>Tic-Tac-Toe Expansion</h1>
+      <button type="button" class="btn btn-quiet" id="help-open" aria-haspopup="dialog">How to play</button>
+    </header>
+
+    <div class="status" id="status" data-player="X">
+      <svg class="status-mark" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+        <path class="mark-x" d="M27 27 73 73M73 27 27 73"/>
+        <circle class="mark-o" cx="50" cy="50" r="25"/>
+      </svg>
+      <p class="status-text" id="status-text" aria-live="polite">X to move, anywhere</p>
+      <button type="button" class="btn btn-strong" id="play-again" hidden>Play again</button>
+    </div>
+
+    <main class="board-area">
+      <div class="board" id="board" role="group" aria-label="Game board"></div>
+      <noscript><p class="noscript">This game needs JavaScript to run.</p></noscript>
+    </main>
+
+    <section class="controls" aria-label="Game controls">
+      <div class="actions">
+        <button type="button" class="btn" id="new-game">New game</button>
+        <button type="button" class="btn" id="undo" disabled>Undo</button>
+      </div>
+
+      <div class="confirm" id="confirm" role="group" aria-labelledby="confirm-text" hidden>
+        <p id="confirm-text">Start a new game? This one will be lost.</p>
+        <div class="confirm-actions">
+          <button type="button" class="btn btn-strong" id="confirm-yes">Start new game</button>
+          <button type="button" class="btn" id="confirm-no">Keep playing</button>
+        </div>
+      </div>
+
+      <div class="setting">
+        <span class="setting-label" id="label-opponent">Opponent</span>
+        <div class="seg" role="radiogroup" aria-labelledby="label-opponent">
+          <label><input type="radio" name="opponent" value="human" checked><span>Two players</span></label>
+          <label><input type="radio" name="opponent" value="computer"><span>Computer</span></label>
+        </div>
+      </div>
+      <p class="setting-note" id="ai-note" hidden>The computer opponent could not be loaded.</p>
+
+      <div class="setting" id="row-level" hidden>
+        <span class="setting-label" id="label-level">Level</span>
+        <div class="seg" role="radiogroup" aria-labelledby="label-level">
+          <label><input type="radio" name="level" value="easy"><span>Easy</span></label>
+          <label><input type="radio" name="level" value="medium" checked><span>Medium</span></label>
+          <label><input type="radio" name="level" value="hard"><span>Hard</span></label>
+        </div>
+      </div>
+
+      <div class="setting" id="row-side" hidden>
+        <span class="setting-label" id="label-side">You play</span>
+        <div class="seg" role="radiogroup" aria-labelledby="label-side">
+          <label><input type="radio" name="side" value="X" checked><span>X, first</span></label>
+          <label><input type="radio" name="side" value="O"><span>O, second</span></label>
+        </div>
+      </div>
+
+      <div class="setting">
+        <span class="setting-label" id="label-mode">Free move</span>
+        <div class="seg" role="radiogroup" aria-labelledby="label-mode" aria-describedby="mode-note">
+          <label><input type="radio" name="mode" value="anywhere" checked><span>Anywhere</span></label>
+          <label><input type="radio" name="mode" value="adjacent"><span>Touching squares</span></label>
+        </div>
+      </div>
+      <p class="setting-note" id="mode-note">If you are sent to a won square, you can play in any open square.</p>
+
+      <label class="check">
+        <input type="checkbox" id="numbers">
+        <span>Show numbers</span>
+      </label>
+    </section>
+
+    <section class="moves" aria-labelledby="moves-title">
+      <h2 id="moves-title">Moves</h2>
+      <div class="moves-box">
+        <ol class="moves-list" id="moves-list" tabindex="0" aria-label="Move list"></ol>
+        <p class="moves-empty" id="moves-empty">No moves yet.</p>
+      </div>
+    </section>
+  </div>
+
+  <dialog class="help" id="help" aria-labelledby="help-title">
+    <div class="help-head">
+      <h2 id="help-title">How to play</h2>
+      <button type="button" class="btn btn-quiet" id="help-close">Close</button>
+    </div>
+
+    <div class="help-body">
+      <h3>The board</h3>
+      <p>The board is a big tic-tac-toe grid. Each of its nine big squares holds a small tic-tac-toe board.</p>
+      <div class="figure">
+        <div class="mini" role="img" aria-label="A three by three grid numbered 1 to 9, row by row.">
+          <span>1</span><span>2</span><span>3</span>
+          <span>4</span><span>5</span><span>6</span>
+          <span>7</span><span>8</span><span>9</span>
+        </div>
+        <p>Squares are numbered 1 to 9, row by row. Big squares and small squares use the same numbers. A move is written as two numbers: 4-1 means big square 4, small square 1.</p>
+      </div>
+
+      <h3>Taking turns</h3>
+      <p>X goes first and can play anywhere. After that, the small square you pick decides where the other player goes next. If you play in small square 1, they must play in big square 1.</p>
+      <div class="figure">
+        <svg class="example" viewBox="0 0 214 92" role="img" aria-label="X plays in big square 4, small square 1. The next move must be in big square 1.">
+          <g class="ex-lines">
+            <path d="M31 2v88M61 2v88M2 31h88M2 61h88"/>
+            <path d="M153 2v88M183 2v88M124 31h88M124 61h88"/>
+          </g>
+          <g class="ex-small">
+            <path d="M12 35v22M20 35v22M5 42h22M5 50h22"/>
+          </g>
+          <path class="ex-x" d="M6.5 36.5 10.5 40.5M10.5 36.5 6.5 40.5"/>
+          <path class="ex-arrow" d="M96 46h20M111 41l5 5-5 5"/>
+          <rect class="ex-target" x="125.5" y="3.5" width="24" height="24" rx="4"/>
+        </svg>
+        <p>X plays 4-1, the top left small square of big square 4. O must now play in big square 1.</p>
+      </div>
+      <p>The board shows where you can play. Those big squares are outlined in the colour of the player to move, and the rest are dimmed.</p>
+
+      <h3>Winning a big square</h3>
+      <p>Get three in a row on a small board to win that big square. A won square is closed, so nobody can play in it again.</p>
+      <p>If a small board fills up with no winner, it is a tie. That board is wiped clean and stays open.</p>
+
+      <h3>Free moves</h3>
+      <p>If you are sent to a big square that is already won, you get a free move. The Free move setting decides where it can go.</p>
+      <ul>
+        <li><strong>Anywhere.</strong> You can play in any open big square.</li>
+        <li><strong>Touching squares.</strong> You can only play in open big squares that touch the one you were sent to, diagonals included. If none of them is open, you can play in any open big square.</li>
+      </ul>
+      <p>You can change this setting during a game.</p>
+
+      <h3>Winning the game</h3>
+      <p>Win three big squares in a row. If all nine big squares are won and nobody has a row, the game is a draw.</p>
+
+      <h3>Playing the computer</h3>
+      <p>Set Opponent to Computer, then pick a level and a side. X moves first. Undo takes back your last move and the computer's reply.</p>
+
+      <h3>Keyboard</h3>
+      <p>Use the arrow keys to move around the board. Press Enter or Space to play in the square you are on.</p>
+    </div>
+  </dialog>
+</body>
+</html>

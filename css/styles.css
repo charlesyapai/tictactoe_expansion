@@ -1,0 +1,1129 @@
+/* Tic-Tac-Toe Expansion
+   Plain CSS, no build step. Colours and sizes are custom properties on :root.
+   Sections: theme, sizing, page layout, board, big squares, small squares,
+   overlays, status, controls, move list, help dialog, motion. */
+
+/* ---------- Theme ---------- */
+
+:root {
+  color-scheme: light;
+
+  --page: #f1eee8;
+  --surface: #fbfaf6;
+  --ink: #24221e;
+  --muted: #666155;
+  --line: #d2cdc1;          /* thin lines between small squares */
+  --line-strong: #b9b3a6;   /* control borders */
+  --frame: #8f897c;         /* heavy lines between big squares */
+
+  --x: #2348c8;
+  --x-text: #2348c8;
+  --x-tint: #dfe6fb;
+  --x-hover: #cad6f7;
+  --x-line: #a6b7ee;
+
+  --o: #cf5206;
+  --o-text: #a84300;
+  --o-tint: #fde5cf;
+  --o-hover: #fad3b0;
+  --o-line: #edb284;
+
+  --shadow: 0 1px 2px rgb(40 34 20 / 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --page: #161513;
+    --surface: #211f1c;
+    --ink: #ece8df;
+    --muted: #a8a295;
+    --line: #37342e;
+    --line-strong: #4d4941;
+    --frame: #6f6a5f;
+
+    --x: #7fa5ff;
+    --x-text: #8fb0ff;
+    --x-tint: #1c2748;
+    --x-hover: #27376a;
+    --x-line: #3b4e91;
+
+    --o: #ffa64f;
+    --o-text: #ffa64f;
+    --o-tint: #40260f;
+    --o-hover: #5c3615;
+    --o-line: #875322;
+
+    --shadow: none;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --page: #161513;
+  --surface: #211f1c;
+  --ink: #ece8df;
+  --muted: #a8a295;
+  --line: #37342e;
+  --line-strong: #4d4941;
+  --frame: #6f6a5f;
+
+  --x: #7fa5ff;
+  --x-text: #8fb0ff;
+  --x-tint: #1c2748;
+  --x-hover: #27376a;
+  --x-line: #3b4e91;
+
+  --o: #ffa64f;
+  --o-text: #ffa64f;
+  --o-tint: #40260f;
+  --o-hover: #5c3615;
+  --o-line: #875322;
+
+  --shadow: none;
+}
+
+/* ---------- Sizing ----------
+   The board is built from the small square up, so every small square is the
+   same whole number of pixels:
+     small square  --cell
+     big square    --sq    = 3 cells + 2 thin lines + padding + ring
+     board         --board = 3 big squares + 2 heavy gaps
+   --avail is the room the board may take: the smaller of the free width and
+   the free height, capped at --board-max. */
+
+:root {
+  --board-max: 704px;
+
+  --pad: 16px;            /* page padding */
+  --gap-big: 10px;        /* gap between big squares, holds the heavy line */
+  --frame-w: 2px;         /* heavy line width */
+  --sq-border: 3px;       /* ring around a big square */
+  --sq-pad: 4px;
+  --sq-radius: 10px;
+  --gap-cell: 2px;        /* thin line between small squares */
+
+  --row-gap: 8px;
+  --col-gap: 28px;
+  --head-h: 44px;
+  --status-h: 52px;
+  --control-h: 38px;
+
+  --vh: 100vh;
+  --cw: calc(100vw - 2 * var(--pad));
+  --pad-top: max(var(--pad), env(safe-area-inset-top, 0px));
+  --pad-bottom: max(var(--pad), env(safe-area-inset-bottom, 0px));
+  --pad-left: max(var(--pad), env(safe-area-inset-left, 0px));
+  --pad-right: max(var(--pad), env(safe-area-inset-right, 0px));
+
+  /* One column: title and status sit above the board. */
+  --avail-w: var(--cw);
+  --avail-h: calc(var(--vh) - var(--pad-top) - var(--pad-bottom) - var(--head-h) - var(--status-h) - 2 * var(--row-gap));
+
+  --avail: min(var(--avail-w), var(--avail-h), var(--board-max));
+  --chrome: calc(2 * var(--gap-big) + 6 * var(--sq-border) + 6 * var(--sq-pad) + 6 * var(--gap-cell));
+  --cell: max(18px, calc((var(--avail) - var(--chrome)) / 9));
+  --sq: calc(3 * var(--cell) + 2 * var(--gap-cell) + 2 * var(--sq-pad) + 2 * var(--sq-border));
+  --board: calc(3 * var(--sq) + 2 * var(--gap-big));
+}
+
+@supports (height: 100dvh) {
+  :root { --vh: 100dvh; }
+}
+
+/* The width of the page content, without any scrollbar. */
+@supports (width: 1cqw) {
+  :root { --cw: 100cqw; }
+}
+
+/* Whole pixels for the small squares where the browser can round. */
+@supports (width: round(down, 10.5px, 1px)) {
+  :root {
+    --cell: max(18px, round(down, calc((var(--avail) - var(--chrome)) / 9), 1px));
+  }
+}
+
+/* Phones: keep everything around the squares tight so the squares stay big. */
+@media (max-width: 480px) {
+  :root {
+    --pad: 6px;
+    --gap-big: 6px;
+    --sq-pad: 2px;
+    --sq-radius: 8px;
+    --gap-cell: 1px;
+    --row-gap: 6px;
+    --status-h: 48px;
+  }
+}
+
+/* Two columns: board on the left, everything else on the right. Used on
+   landscape screens, including phones held sideways. */
+@media (min-width: 900px) and (min-aspect-ratio: 1/1), (min-width: 560px) and (min-aspect-ratio: 4/3) {
+  :root {
+    --pad: 24px;
+    --gap-big: 14px;
+    --frame-w: 3px;
+    --sq-pad: 6px;
+    --sq-radius: 12px;
+    --row-gap: 14px;
+    --panel-min: clamp(250px, calc(var(--cw) * 0.31), 340px);
+    --avail-w: calc(var(--cw) - var(--col-gap) - var(--panel-min));
+    --avail-h: calc(var(--vh) - var(--pad-top) - var(--pad-bottom));
+  }
+}
+
+@media (min-width: 560px) and (min-aspect-ratio: 4/3) and (max-height: 560px) {
+  :root {
+    --pad: 8px;
+    --gap-big: 6px;
+    --frame-w: 2px;
+    --sq-pad: 2px;
+    --sq-radius: 8px;
+    --gap-cell: 1px;
+    --row-gap: 8px;
+    --col-gap: 16px;
+  }
+}
+
+@media (pointer: coarse) {
+  :root { --control-h: 44px; }
+}
+
+/* ---------- Page ---------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  background: var(--page);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: var(--vh);
+  padding: var(--pad-top) var(--pad-right) var(--pad-bottom) var(--pad-left);
+  container-type: inline-size;
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3, p { margin: 0; }
+
+[hidden] { display: none !important; }
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "head"
+    "status"
+    "board"
+    "controls"
+    "moves";
+  row-gap: var(--row-gap);
+  max-width: var(--board-max);
+  margin: 0 auto;
+}
+
+.head { grid-area: head; }
+.status { grid-area: status; }
+.board-area { grid-area: board; }
+.controls { grid-area: controls; }
+.moves { grid-area: moves; }
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: var(--head-h);
+  min-width: 0;
+}
+
+.head h1 {
+  font-size: 19px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.board-area {
+  display: grid;
+  justify-items: center;
+  min-width: 0;
+}
+
+.controls { margin-top: 6px; }
+
+@media (min-width: 900px) and (min-aspect-ratio: 1/1), (min-width: 560px) and (min-aspect-ratio: 4/3) {
+  body {
+    display: grid;
+    align-items: center;
+  }
+
+  .app {
+    grid-template-columns: var(--board) minmax(var(--panel-min), 400px);
+    grid-template-rows: auto auto auto minmax(150px, 1fr);
+    grid-template-areas:
+      "board head"
+      "board status"
+      "board controls"
+      "board moves";
+    column-gap: var(--col-gap);
+    justify-content: center;
+    max-width: none;
+    margin: 0;
+  }
+
+  .board-area {
+    position: sticky;
+    top: var(--pad-top);
+    align-self: start;
+  }
+
+  .head h1 { font-size: 22px; }
+  .controls { margin-top: 0; }
+}
+
+/* ---------- Board ---------- */
+
+.board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, var(--sq));
+  grid-auto-rows: var(--sq);
+  gap: var(--gap-big);
+  width: var(--board);
+  height: var(--board);
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* The heavy lines of the big grid. Each pseudo-element draws one pair. */
+.board::before,
+.board::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border: 0 solid var(--frame);
+  border-radius: 2px;
+}
+
+.board::before {
+  top: 0;
+  bottom: 0;
+  left: calc(var(--sq) + (var(--gap-big) - var(--frame-w)) / 2);
+  width: calc(var(--sq) + var(--gap-big) + var(--frame-w));
+  border-left-width: var(--frame-w);
+  border-right-width: var(--frame-w);
+}
+
+.board::after {
+  left: 0;
+  right: 0;
+  top: calc(var(--sq) + (var(--gap-big) - var(--frame-w)) / 2);
+  height: calc(var(--sq) + var(--gap-big) + var(--frame-w));
+  border-top-width: var(--frame-w);
+  border-bottom-width: var(--frame-w);
+}
+
+/* ---------- Big squares ---------- */
+
+.app[data-turn="X"] {
+  --turn: var(--x);
+  --turn-tint: var(--x-tint);
+  --turn-hover: var(--x-hover);
+  --turn-line: var(--x-line);
+  --other: var(--o);
+}
+
+.app[data-turn="O"] {
+  --turn: var(--o);
+  --turn-tint: var(--o-tint);
+  --turn-hover: var(--o-hover);
+  --turn-line: var(--o-line);
+  --other: var(--x);
+}
+
+.sq {
+  --sq-bg: var(--page);
+  --sq-ring: transparent;
+  --sq-line: var(--line);
+  --mark-opacity: 0.55;
+
+  position: relative;
+  width: var(--sq);
+  height: var(--sq);
+  padding: var(--sq-pad);
+  border: var(--sq-border) solid var(--sq-ring);
+  border-radius: var(--sq-radius);
+  background: var(--sq-bg);
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+/* Where the next move may go: tint plus a ring in the mover's colour. */
+.sq.is-legal {
+  --sq-bg: var(--turn-tint);
+  --sq-ring: var(--turn);
+  --sq-line: var(--turn-line);
+  --mark-opacity: 1;
+}
+
+/* The three big squares that won the game. The other won squares step back. */
+.app[data-over="win"] .sq:not(.is-gameline) .sq-won { opacity: 0.4; }
+.sq.is-gameline { z-index: 1; }
+.sq.is-gameline[data-winner="X"] {
+  --sq-bg: var(--x-tint);
+  --sq-ring: var(--x);
+  --sq-line: var(--x-line);
+}
+.sq.is-gameline[data-winner="O"] {
+  --sq-bg: var(--o-tint);
+  --sq-ring: var(--o);
+  --sq-line: var(--o-line);
+}
+
+.sq-grid {
+  display: grid;
+  grid-template-columns: repeat(3, var(--cell));
+  grid-auto-rows: var(--cell);
+  gap: var(--gap-cell);
+  background: var(--sq-line);
+  transition: background-color 180ms ease;
+}
+
+/* ---------- Small squares ---------- */
+
+.cell {
+  position: relative;
+  display: block;
+  width: var(--cell);
+  height: var(--cell);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--sq-bg);
+  color: inherit;
+  font: inherit;
+  cursor: default;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background-color 180ms ease;
+}
+
+.cell.is-open { cursor: pointer; }
+
+.cell:focus { outline: none; }
+
+.cell:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: -3px;
+  border-radius: 4px;
+  z-index: 1;
+}
+
+.cell.is-open:active { background: var(--turn-hover); }
+
+@media (hover: hover) {
+  .cell.is-open:hover { background: var(--turn-hover); }
+}
+
+.mark,
+.status-mark,
+.sq-won svg {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mark {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  stroke-width: 11;
+  opacity: var(--mark-opacity);
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.mark-x, .mark-o { display: none; }
+.mark-x { stroke: var(--x); }
+.mark-o { stroke: var(--o); }
+
+.cell[data-mark="X"] .mark-x,
+.cell[data-mark="O"] .mark-o,
+.cell[data-ghost="X"] .mark-x,
+.cell[data-ghost="O"] .mark-o {
+  display: inline;
+}
+
+/* Hover and focus preview of the mark about to be placed. */
+.cell[data-ghost] .mark { opacity: 0.3; }
+
+/* The last move played. */
+.cell.is-last::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.cell-num {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  color: var(--muted);
+  font-size: clamp(10px, calc(var(--cell) * 0.32), 16px);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.app[data-numbers="on"] .cell:not([data-mark]):not([data-ghost]) .cell-num { display: grid; }
+.sq.is-won .cell-num { display: none !important; }
+
+/* ---------- Big square overlays ---------- */
+
+/* A won big square: large mark on top, small marks faded underneath. */
+.sq-won {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.sq-won svg {
+  width: 100%;
+  height: 100%;
+  stroke-width: 9;
+}
+
+.sq-won .mark-x, .sq-won .mark-o { display: none; }
+
+.sq.is-won .sq-won { display: grid; }
+.sq.is-won[data-winner="X"] .sq-won .mark-x,
+.sq.is-won[data-winner="O"] .sq-won .mark-o { display: inline; }
+
+.sq.is-won { --mark-opacity: 0.14; }
+.sq.is-won .cell.is-winline .mark { opacity: 0.42; }
+.sq.is-won .cell.is-last::after { opacity: 0.3; }
+
+/* Corner number of a big square, shown with "Show numbers". */
+.sq-num {
+  position: absolute;
+  top: calc(-1 * var(--sq-border) - 5px);
+  left: calc(-1 * var(--sq-border) - 5px);
+  display: none;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.app[data-numbers="on"] .sq-num { display: grid; }
+
+/* How many times a tie has wiped this big square. */
+.sq-resets {
+  position: absolute;
+  right: 6px;
+  bottom: calc(-1 * var(--sq-border) - 6px);
+  padding: 1px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Shown for a moment when a big square ties and is wiped. */
+.sq-tie {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.sq-tie span {
+  max-width: 92%;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--page);
+  font-size: clamp(11px, calc(var(--sq) * 0.065), 14px);
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.sq.is-tie-flash .sq-tie { display: grid; }
+.sq.is-tie-flash { --mark-opacity: 0.75; }
+.sq.is-tie-flash .mark { animation: tie-fade 900ms ease-in forwards; }
+
+/* Preview: where this move would send the other player. */
+.sq.is-target,
+.sq.is-target-free {
+  outline: 2px dashed var(--other);
+  outline-offset: 2px;
+}
+
+.sq.is-target-free {
+  outline-style: dotted;
+  outline-color: var(--muted);
+}
+
+.sq-hint {
+  position: absolute;
+  left: 50%;
+  top: calc(-1 * var(--sq-border));
+  transform: translate(-50%, -55%);
+  display: none;
+  max-width: calc(var(--sq) - 6px);
+  padding: 2px 7px;
+  border: 1.5px solid var(--other);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  width: max-content;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.sq.is-target .sq-hint,
+.sq.is-target-free .sq-hint { display: block; }
+
+.sq.is-target-free .sq-hint { border-color: var(--muted); border-style: dotted; }
+
+.noscript {
+  padding: 24px;
+  text-align: center;
+}
+
+/* ---------- Status ---------- */
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--status-h);
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--status-colour, var(--line-strong));
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  min-width: 0;
+  transition: border-color 180ms ease;
+}
+
+.status[data-player="X"] { --status-colour: var(--x); }
+.status[data-player="O"] { --status-colour: var(--o); }
+
+.status-mark {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  stroke-width: 15;
+}
+
+.status[data-player="X"] .mark-x,
+.status[data-player="O"] .mark-o { display: inline; }
+.status[data-player="none"] .status-mark { display: none; }
+
+.status-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.status .btn { flex: none; }
+
+.status[data-thinking="true"] .status-text::after {
+  content: "";
+  display: inline-block;
+  width: 1.1em;
+  margin-left: 2px;
+  text-align: left;
+  vertical-align: bottom;
+  animation: dots 1.2s steps(1, end) infinite;
+}
+
+@media (min-width: 900px) and (min-aspect-ratio: 1/1), (min-width: 560px) and (min-aspect-ratio: 4/3) {
+  .status {
+    height: auto;
+    min-height: 62px;
+    padding: 10px 14px;
+  }
+  .status-text { font-size: 18px; }
+  .status-mark { width: 30px; height: 30px; }
+}
+
+@media (min-width: 560px) and (min-aspect-ratio: 4/3) and (max-height: 560px) {
+  .status { min-height: 50px; padding: 6px 12px; }
+  .status-text { font-size: 16px; }
+}
+
+/* ---------- Controls ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-h);
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+}
+
+@media (hover: hover) {
+  .btn:hover:not(:disabled) { border-color: var(--ink); }
+}
+
+.btn:active:not(:disabled) { background: var(--line); }
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn:focus-visible,
+.moves-list:focus-visible,
+.check input:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.btn-strong {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--page);
+}
+
+.btn-strong:active:not(:disabled) { background: var(--muted); }
+
+.btn-quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 10px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.controls {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.confirm {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.confirm p { font-weight: 600; }
+
+.confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.confirm-actions .btn { flex: 1 1 auto; }
+
+.setting {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.setting-label {
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.setting-note {
+  margin: -2px 0 2px 84px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+/* In a narrow column the label goes above its control. */
+@container (max-width: 296px) {
+  .setting {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+  }
+  .setting-note { margin-left: 0; }
+}
+
+/* Segmented control made of radio buttons. */
+.seg {
+  display: flex;
+  padding: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+.seg label {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The radio itself is invisible and a little taller than its label, so the
+   whole height of the control takes a tap. */
+.seg input {
+  position: absolute;
+  inset: -3px 0;
+  width: 100%;
+  height: calc(100% + 6px);
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.seg span {
+  display: grid;
+  place-items: center;
+  min-height: calc(var(--control-h) - 6px);
+  padding: 0 8px;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.seg input:checked + span {
+  background: var(--ink);
+  color: var(--page);
+}
+
+.seg input:focus-visible + span {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.seg input:disabled { cursor: default; }
+.seg input:disabled + span { opacity: 0.4; }
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--control-h);
+  justify-self: start;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.check input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--ink);
+  cursor: pointer;
+}
+
+/* ---------- Move list ---------- */
+
+.moves {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+  margin-top: 4px;
+}
+
+.moves h2 {
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.moves-box {
+  position: relative;
+  flex: 1 1 auto;
+  height: 150px;
+  min-height: 110px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.moves-list {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-content: start;
+  gap: 0 12px;
+  margin: 0;
+  padding: 8px 12px;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.moves-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 0;
+  white-space: nowrap;
+}
+
+.mv-n {
+  min-width: 2.2em;
+  color: var(--muted);
+  text-align: right;
+}
+
+.mv-p { font-weight: 800; }
+.mv-p[data-player="X"] { color: var(--x-text); }
+.mv-p[data-player="O"] { color: var(--o-text); }
+
+.mv-tag {
+  color: var(--muted);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.moves-list li.is-latest .mv-t {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.moves-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (min-width: 900px) and (min-aspect-ratio: 1/1), (min-width: 560px) and (min-aspect-ratio: 4/3) {
+  .moves { margin-top: 0; }
+  .moves-box { height: auto; }
+}
+
+/* ---------- Help dialog ---------- */
+
+.help {
+  width: min(560px, calc(100vw - 24px));
+  max-height: min(720px, calc(var(--vh) - 24px));
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.help[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.help::backdrop { background: rgb(20 18 14 / 0.5); }
+
+.help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 10px 10px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.help-head h2 { font-size: 18px; }
+
+.help-body {
+  padding: 4px 20px 22px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.help-body h3 {
+  margin: 18px 0 6px;
+  font-size: 15px;
+}
+
+.help-body p { margin: 0 0 8px; }
+
+.help-body ul {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.help-body li { margin-bottom: 4px; }
+
+.figure {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 10px 0 12px;
+}
+
+.figure p { margin: 0; color: var(--muted); font-size: 14px; }
+
+.mini {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(3, 28px);
+  grid-auto-rows: 28px;
+  gap: 2px;
+  background: var(--frame);
+}
+
+.mini span {
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.example {
+  flex: none;
+  width: min(100%, 250px);
+  height: auto;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ex-lines { stroke: var(--frame); stroke-width: 2; }
+.ex-small { stroke: var(--line-strong); stroke-width: 1; }
+.ex-x { stroke: var(--x); stroke-width: 1.8; }
+.ex-arrow { stroke: var(--muted); stroke-width: 2; }
+.ex-target { stroke: var(--o); stroke-width: 2.5; fill: var(--o-tint); }
+
+@media (max-width: 480px) {
+  .figure { flex-direction: column; align-items: flex-start; gap: 8px; }
+}
+
+/* ---------- Motion ---------- */
+
+.cell.pop .mark { animation: pop 170ms cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+.sq.pop .sq-won svg { animation: pop-big 260ms cubic-bezier(0.2, 0.9, 0.3, 1.15); }
+.sq.is-gameline { animation: win-bump 520ms ease-in-out 2; }
+
+@keyframes pop {
+  from { transform: scale(0.55); opacity: 0; }
+}
+
+@keyframes pop-big {
+  from { transform: scale(0.7); opacity: 0; }
+}
+
+@keyframes tie-fade {
+  0%, 55% { opacity: 0.75; }
+  100% { opacity: 0.12; }
+}
+
+@keyframes win-bump {
+  50% { transform: scale(1.035); }
+}
+
+@keyframes dots {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75% { content: "..."; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .status[data-thinking="true"] .status-text::after { content: "..."; }
+}
